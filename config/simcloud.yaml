@@ -1,0 +1,17 @@
+# Simulated cloud for cmd/simcloud: three InfiniBand fabrics of 8-GPU servers.
+fabrics:
+  - name: fab-ams-1
+    hosts: {gpu-h100-sxm.8gpu: 64}
+  - name: fab-ams-2
+    hosts: {gpu-h100-sxm.8gpu: 32}
+  - name: fab-ber-1
+    hosts: {gpu-h100-sxm.8gpu: 16, gpu-h200-sxm.8gpu: 16}
+instanceTypes:
+  - {name: gpu-h100-sxm.8gpu, gpus: 8, gpuProduct: NVIDIA-H100-80GB-HBM3, milliCPU: 128000, memoryBytes: 1717986918400}
+  - {name: gpu-h200-sxm.8gpu, gpus: 8, gpuProduct: NVIDIA-H200, milliCPU: 128000, memoryBytes: 1717986918400}
+gpuQuota: 800
+launchDelayMin: 60s
+launchDelayMax: 180s
+deleteDelay: 30s
+apiLatency: 50ms
+seed: 1

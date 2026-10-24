@@ -1,0 +1,5 @@
+bin/
+reports/
+docs/
+.git/
+go.local.*

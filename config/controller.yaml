@@ -1,0 +1,20 @@
+# Controller timings and client limits (internal/config). Pool sizes and disruption budgets are
+# set on GPUNodePool objects, not here.
+batchIdle: 1s            # plan once no new pod arrived for this long...
+batchMax: 10s            # ...or this long after the first pod of a batch
+resync: 30s
+registrationTTL: 15m     # launched but no Node: replace
+initializationTTL: 15m   # Node but not all GPUs advertised: replace
+repairAfter: 10m         # initialized node NotReady this long: replace
+launchRetries: 5
+launchBackoff: 5s
+unavailableTTL: 3m       # skip a fabric this long after InsufficientCapacity
+offeringsRefresh: 15s
+disruptionInterval: 15s
+gcInterval: 2m
+gcGrace: 5m
+createConcurrency: 50
+maxCreatesPerPlan: 1000
+claimWorkers: 50
+kubeQPS: 200
+kubeBurst: 400

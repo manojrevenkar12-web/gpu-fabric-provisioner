@@ -1,0 +1,10 @@
+/bin/
+/go.local.mod
+/go.local.sum
+/.envtest/
+/reports/tmp/
+*.test
+*.out
+cover.html
+/scripts/go.sh
+/scripts/gen.sh

@@ -1,0 +1,33 @@
+# The repository is developed behind a proxy that cannot reach the Go module proxy or checksum
+# database, so go.sum is produced here, where both are reachable, and pushed to a branch to merge.
+name: bootstrap-go-sum
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [go.mod]
+
+permissions:
+  contents: write
+
+jobs:
+  gosum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Tidy with the public proxy and checksum database
+        run: |
+          go mod tidy
+          go mod verify
+          if git diff --quiet -- go.mod go.sum && git ls-files --error-unmatch go.sum >/dev/null 2>&1; then
+            echo "go.sum already current"; exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b bootstrap/go-sum
+          git add go.mod go.sum
+          git commit -m "go.sum from the public checksum database"
+          git push -f origin bootstrap/go-sum

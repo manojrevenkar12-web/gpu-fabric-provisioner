@@ -1,0 +1,229 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: nodeclaims.gpufabric.dev
+spec:
+  group: gpufabric.dev
+  names:
+    kind: NodeClaim
+    listKind: NodeClaimList
+    plural: nodeclaims
+    shortNames:
+    - nc
+    singular: nodeclaim
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.pool
+      name: Pool
+      type: string
+    - jsonPath: .spec.fabric
+      name: Fabric
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.nodeName
+      name: Node
+      type: string
+    - jsonPath: .spec.reason
+      name: Reason
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: NodeClaim is one GPU server requested from the cloud and the
+          Node it becomes.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NodeClaimSpec is the server the provisioner asked for. It
+              never changes after creation.
+            properties:
+              fabric:
+                description: Fabric the server must be attached to.
+                minLength: 1
+                type: string
+              image:
+                minLength: 1
+                type: string
+              instanceType:
+                minLength: 1
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels and Taints are copied to the Node when it registers.
+                type: object
+              pool:
+                description: Pool that owns this claim.
+                minLength: 1
+                type: string
+              reason:
+                description: 'Reason the claim was created: the gang it was made for,
+                  "singleton", "min-nodes" or "replace:<claim>".'
+                type: string
+              taints:
+                items:
+                  description: |-
+                    The node this Taint is attached to has the "effect" on
+                    any pod that does not tolerate the Taint.
+                  properties:
+                    effect:
+                      description: |-
+                        Required. The effect of the taint on pods
+                        that do not tolerate the taint.
+                        Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: Required. The taint key to be applied to a node.
+                      type: string
+                    timeAdded:
+                      description: |-
+                        TimeAdded represents the time at which the taint was added.
+                        It is only written for NoExecute taints.
+                      format: date-time
+                      type: string
+                    value:
+                      description: The taint value corresponding to the taint key.
+                      type: string
+                  required:
+                  - effect
+                  - key
+                  type: object
+                type: array
+              templateHash:
+                description: TemplateHash of the pool when the claim was made; a different
+                  current hash means drift.
+                minLength: 1
+                type: string
+            required:
+            - fabric
+            - image
+            - instanceType
+            - pool
+            - templateHash
+            type: object
+            x-kubernetes-validations:
+            - message: spec is immutable; create a new NodeClaim instead
+              rule: self == oldSelf
+          status:
+            description: NodeClaimStatus is observed state.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              gpus:
+                description: GPUs the instance type has.
+                format: int32
+                type: integer
+              instanceID:
+                description: InstanceID in the cloud.
+                type: string
+              lastError:
+                description: LastError from the cloud, if the last call failed.
+                type: string
+              launchAttempts:
+                description: LaunchAttempts counts failed create calls that were retried.
+                format: int32
+                type: integer
+              nodeName:
+                description: NodeName once registered.
+                type: string
+              phase:
+                description: NodeClaimPhase is the lifecycle position of a claim.
+                enum:
+                - Pending
+                - Launched
+                - Registered
+                - Initialized
+                - Terminating
+                type: string
+              providerID:
+                description: ProviderID the Node will carry.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
