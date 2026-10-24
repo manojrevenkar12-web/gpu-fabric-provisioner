@@ -16,5 +16,6 @@ gcGrace: 5m
 createConcurrency: 50
 maxCreatesPerPlan: 1000
 claimWorkers: 50
+poolStatusInterval: 5s   # a pool status is written at most this often
 kubeQPS: 200
 kubeBurst: 400

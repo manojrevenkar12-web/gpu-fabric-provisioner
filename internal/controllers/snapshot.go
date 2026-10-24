@@ -2,6 +2,9 @@ package controllers
 
 import (
 	"context"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -116,7 +119,8 @@ func (cl *Cluster) Snapshot(v View) (*plan.Snapshot, map[string]plan.GangInfo) {
 			Claim: claim.Name, NodeName: claim.Status.NodeName, Pool: claim.Spec.Pool, Fabric: claim.Spec.Fabric,
 			Capacity:    plan.Resources{GPU: it.GPUs, MilliCPU: it.MilliCPU, Memory: it.MemoryBytes},
 			Initialized: claim.Status.Phase == v1alpha1.PhaseInitialized,
-			Launched:    claim.Status.InstanceID != "",
+			// The offerings include this server's host unless it launched before they were read.
+			Launched:    claim.Status.InstanceID != "" && launchedBefore(claim, v.FetchedAt),
 			Schedulable: claim.DeletionTimestamp == nil && !cl.Drifted(claim),
 		}
 		if node := cl.Node(claim); node != nil {
@@ -173,4 +177,9 @@ func (cl *Cluster) gangInfo(g string) plan.GangInfo {
 		}
 	}
 	return gi
+}
+
+func launchedBefore(claim *v1alpha1.NodeClaim, t time.Time) bool {
+	c := meta.FindStatusCondition(claim.Status.Conditions, v1alpha1.ConditionLaunched)
+	return c != nil && c.LastTransitionTime.Time.Before(t)
 }

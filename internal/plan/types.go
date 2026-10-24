@@ -56,7 +56,7 @@ type Node struct {
 	// Schedulable is false for nodes that are cordoned, terminating or drifted: nothing new is
 	// planned onto them, but they still count against pool limits.
 	Schedulable bool
-	// Launched: the cloud already has an instance (and so already took it out of Offerings).
+	// Launched: the cloud had this instance when its offerings were read, so they already exclude its host.
 	Launched bool
 }
 

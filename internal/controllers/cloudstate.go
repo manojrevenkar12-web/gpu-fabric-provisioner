@@ -90,6 +90,8 @@ type View struct {
 	Available   map[string]map[string]int32
 	Quota       cloud.Quota
 	Unavailable map[string]bool
+	// FetchedAt is when Available was read. Servers launched after it are not in it yet.
+	FetchedAt time.Time
 }
 
 // Get returns the cached state, refreshing it if it is older than the refresh interval. If the
@@ -107,7 +109,7 @@ func (c *CloudState) Get(ctx context.Context) (View, error) {
 	if c.types == nil {
 		return View{}, err
 	}
-	v := View{Types: c.types, Available: map[string]map[string]int32{}, Quota: c.quota, Unavailable: map[string]bool{}}
+	v := View{Types: c.types, Available: map[string]map[string]int32{}, Quota: c.quota, Unavailable: map[string]bool{}, FetchedAt: c.fetched}
 	for f, ts := range c.offerings {
 		m := map[string]int32{}
 		for t, n := range ts {

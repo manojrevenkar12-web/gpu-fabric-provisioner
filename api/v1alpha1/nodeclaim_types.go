@@ -54,7 +54,6 @@ const (
 	ConditionRegistered  = "Registered"
 	ConditionInitialized = "Initialized"
 	ConditionDrifted     = "Drifted"
-	ConditionEmpty       = "Empty"
 	ConditionDisrupting  = "Disrupting"
 	// Condition types on GPUNodePools.
 	ConditionCapacity = "CapacityAvailable"

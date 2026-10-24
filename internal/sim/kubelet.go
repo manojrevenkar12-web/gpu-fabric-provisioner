@@ -36,6 +36,7 @@ type simNode struct {
 	noGPU        bool
 	advertised   bool
 	broken       bool
+	untainted    bool
 }
 
 // Kubelet registers a Node for every running instance, advertises GPUs late, runs bound pods and
@@ -105,16 +106,17 @@ func (k *Kubelet) step(ctx context.Context) error {
 			if now.Sub(first) < k.Cfg.JoinDelay {
 				continue
 			}
+			// Create returns the stored object, so the status write needs no read from a cache
+			// that may not have the node yet. Failures are retried on the next tick.
 			node := newNode(in)
-			if err := k.Client.Create(ctx, node); err != nil && !apierrors.IsAlreadyExists(err) {
-				return err
-			}
-			if err := k.Client.Get(ctx, client.ObjectKeyFromObject(node), node); err != nil {
-				return err
+			if err := k.Client.Create(ctx, node); err != nil {
+				if !apierrors.IsAlreadyExists(err) || k.Client.Get(ctx, client.ObjectKeyFromObject(node), node) != nil {
+					continue
+				}
 			}
 			node.Status = nodeStatus(in, 0, true)
 			if err := k.Client.Status().Update(ctx, node); err != nil {
-				return err
+				continue
 			}
 			k.mu.Lock()
 			k.nodes[in.ID] = &simNode{name: node.Name, instanceID: in.ID, registeredAt: now, gpus: in.gpus, noGPU: in.noGPU}
@@ -124,17 +126,11 @@ func (k *Kubelet) step(ctx context.Context) error {
 		if !n.advertised && !n.noGPU && !n.broken && now.Sub(n.registeredAt) >= k.Cfg.GPUDelay {
 			node := &corev1.Node{}
 			if err := k.Client.Get(ctx, client.ObjectKey{Name: n.name}, node); err != nil {
-				if apierrors.IsNotFound(err) {
-					continue
-				}
-				return err
+				continue
 			}
 			node.Status = nodeStatus(in, n.gpus, true)
 			if err := k.Client.Status().Update(ctx, node); err != nil {
-				if apierrors.IsConflict(err) {
-					continue
-				}
-				return err
+				continue
 			}
 			n.advertised = true
 		}
@@ -166,16 +162,16 @@ func (k *Kubelet) step(ctx context.Context) error {
 // taints new nodes node.kubernetes.io/not-ready at creation, and the taint goes once the node is Ready.
 func (k *Kubelet) lifecycle(ctx context.Context) error {
 	k.mu.Lock()
-	names := make([]string, 0, len(k.nodes))
+	var todo []*simNode
 	for _, n := range k.nodes {
-		if !n.broken {
-			names = append(names, n.name)
+		if !n.broken && !n.untainted {
+			todo = append(todo, n)
 		}
 	}
 	k.mu.Unlock()
-	for _, name := range names {
+	for _, sn := range todo {
 		node := &corev1.Node{}
-		if err := k.Client.Get(ctx, client.ObjectKey{Name: name}, node); err != nil {
+		if err := k.Client.Get(ctx, client.ObjectKey{Name: sn.name}, node); err != nil {
 			continue
 		}
 		if !ready(node) {
@@ -191,13 +187,22 @@ func (k *Kubelet) lifecycle(ctx context.Context) error {
 			taints = append(taints, t)
 		}
 		if !changed {
+			k.mu.Lock()
+			sn.untainted = true
+			k.mu.Unlock()
 			continue
 		}
 		n := node.DeepCopy()
 		n.Spec.Taints = taints
-		if err := k.Client.Update(ctx, n); err != nil && !apierrors.IsConflict(err) && !apierrors.IsNotFound(err) {
+		if err := k.Client.Update(ctx, n); err != nil {
+			if apierrors.IsConflict(err) || apierrors.IsNotFound(err) {
+				continue
+			}
 			return err
 		}
+		k.mu.Lock()
+		sn.untainted = true
+		k.mu.Unlock()
 	}
 	return nil
 }

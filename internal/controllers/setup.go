@@ -83,7 +83,7 @@ func Setup(ctx context.Context, mgr ctrl.Manager, o Options) (*Components, error
 	if err := ctrl.NewControllerManagedBy(mgr).Named("gpunodepool").
 		For(&v1alpha1.GPUNodePool{}).
 		Watches(&v1alpha1.NodeClaim{}, handler.EnqueueRequestsFromMapFunc(poolForClaim)).
-		Complete(&PoolReconciler{Client: c, Cloud: cs}); err != nil {
+		Complete(&PoolReconciler{Client: c, Cloud: cs, MinInterval: s.PoolStatusInterval.Duration}); err != nil {
 		return nil, err
 	}
 	if err := triggers(ctx, mgr, prov); err != nil {

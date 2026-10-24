@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gpu-fabric-provisioner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gpu-fabric-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gpu-fabric-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: gpu-fabric-provisioner
+    namespace: gpu-fabric-provisioner

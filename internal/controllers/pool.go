@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,10 +16,16 @@ import (
 	"github.com/manojrevenkar12-web/gpu-fabric-provisioner/internal/metrics"
 )
 
-// PoolReconciler keeps GPUNodePool status and per-pool metrics current.
+// PoolReconciler keeps GPUNodePool status and per-pool metrics current. Every claim event of a
+// pool triggers it, so at thousands of nodes it would rewrite the pool's status many times a
+// second; it writes at most once per MinInterval instead and catches up afterwards.
 type PoolReconciler struct {
-	Client client.Client
-	Cloud  *CloudState
+	Client      client.Client
+	Cloud       *CloudState
+	MinInterval time.Duration
+
+	mu        sync.Mutex
+	lastWrite map[string]time.Time
 }
 
 // Reconcile recomputes one pool's status from its claims.
@@ -77,6 +85,16 @@ func (r *PoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if poolStatusEqual(&pool.Status, st) {
 		return ctrl.Result{}, nil
 	}
+	r.mu.Lock()
+	if r.lastWrite == nil {
+		r.lastWrite = map[string]time.Time{}
+	}
+	if wait := r.MinInterval - time.Since(r.lastWrite[pool.Name]); wait > 0 {
+		r.mu.Unlock()
+		return ctrl.Result{RequeueAfter: wait}, nil
+	}
+	r.lastWrite[pool.Name] = time.Now()
+	r.mu.Unlock()
 	p := pool.DeepCopy()
 	p.Status = *st
 	return ctrl.Result{}, client.IgnoreNotFound(r.Client.Status().Update(ctx, p))

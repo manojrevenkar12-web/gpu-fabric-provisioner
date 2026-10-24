@@ -68,6 +68,8 @@ type Settings struct {
 	MaxCreatesPerPlan int `json:"maxCreatesPerPlan"`
 	// ClaimWorkers is the NodeClaim controller's concurrency.
 	ClaimWorkers int `json:"claimWorkers"`
+	// PoolStatusInterval: a pool's status is written at most this often.
+	PoolStatusInterval Duration `json:"poolStatusInterval"`
 	// KubeQPS and KubeBurst limit the controller's API server client.
 	KubeQPS   float32 `json:"kubeQPS"`
 	KubeBurst int     `json:"kubeBurst"`
@@ -92,6 +94,7 @@ func Defaults() Settings {
 		CreateConcurrency:  50,
 		MaxCreatesPerPlan:  1000,
 		ClaimWorkers:       50,
+		PoolStatusInterval: D(5 * time.Second),
 		KubeQPS:            200,
 		KubeBurst:          400,
 	}

@@ -315,6 +315,7 @@ func FastSettings() config.Settings {
 	s.DisruptionInterval = config.D(time.Second)
 	s.GCInterval = config.D(2 * time.Second)
 	s.GCGrace = config.D(3 * time.Second)
+	s.PoolStatusInterval = config.D(500 * time.Millisecond)
 	return s
 }
 

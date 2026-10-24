@@ -58,3 +58,28 @@ jobs:
         run: docker build -t gpu-fabric-provisioner:ci .
       - name: Image runs
         run: docker run --rm gpu-fabric-provisioner:ci --help 2>&1 | grep -q cloud-url
+
+  drills:
+    runs-on: ubuntu-latest
+    needs: [check]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: envtest binaries
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21
+          echo "KUBEBUILDER_ASSETS=$(setup-envtest use $ENVTEST_K8S_VERSION --bin-dir /tmp/envtest -p path)" >> "$GITHUB_ENV"
+      - name: Fault drills against a real API server, with the naive baseline
+        run: go run ./cmd/drill -out /tmp/drills.json -report /tmp/DRILLS.md 2>&1 | grep -E "^==|jobs,|::error"
+      - name: Release gate
+        run: go run ./cmd/gate -in /tmp/drills.json
+      - name: Scale smoke test (1,000 nodes)
+        run: go run ./cmd/scale -nodes 1000 -out /tmp/scale.json 2>&1 | grep -v "^ "
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drill-results
+          path: /tmp/*.json

@@ -1,0 +1,42 @@
+# The webhook adds the placement gate to gang pods. failurePolicy Ignore: if the provisioner is
+# down, pods are created ungated and scheduled one by one, as without this provisioner, rather
+# than not created at all. The certificate comes from cert-manager.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpu-fabric-provisioner-webhook
+spec:
+  selector: {app.kubernetes.io/name: gpu-fabric-provisioner}
+  ports:
+    - {name: webhook, port: 443, targetPort: webhook}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: gpu-fabric-provisioner-webhook
+spec:
+  secretName: gpu-fabric-provisioner-webhook
+  dnsNames:
+    - gpu-fabric-provisioner-webhook.gpu-fabric-provisioner.svc
+  issuerRef: {kind: ClusterIssuer, name: cluster-issuer}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: gpu-fabric-provisioner
+  annotations:
+    cert-manager.io/inject-ca-from: gpu-fabric-provisioner/gpu-fabric-provisioner-webhook
+webhooks:
+  - name: gate.gpufabric.dev
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    failurePolicy: Ignore
+    timeoutSeconds: 5
+    clientConfig:
+      service: {name: gpu-fabric-provisioner-webhook, namespace: gpu-fabric-provisioner, path: /mutate-pods}
+    rules:
+      - {apiGroups: [""], apiVersions: [v1], operations: [CREATE], resources: [pods]}
+    # Only pods that declare a gang; everything else never reaches the webhook.
+    objectSelector:
+      matchExpressions:
+        - {key: gpufabric.dev/gang, operator: Exists}

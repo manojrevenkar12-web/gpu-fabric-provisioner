@@ -54,6 +54,7 @@ type Sample struct {
 	CloudGPUs    int64 // GPUs of every instance that exists
 	RunningGPUs  int64 // GPUs requested by running pods doing useful work
 	StrandedGPUs int64 // GPUs held by members of gangs that are not fully running
+	SplitGPUs    int64 // GPUs of gangs running across fabrics (slowed down, see SplitSlowdown)
 }
 
 // Workload creates jobs' pods, completes them after their duration, restarts gangs that lost a
@@ -66,6 +67,9 @@ type Workload struct {
 	Gate        bool
 	Tolerations []corev1.Toleration
 	Tick        time.Duration
+	// SplitSlowdown multiplies the duration of a gang whose members landed in different fabrics:
+	// its collectives cross the datacenter network instead of InfiniBand. 0 means 1 (no slowdown).
+	SplitSlowdown float64
 
 	mu      sync.Mutex
 	t0      time.Time
@@ -255,7 +259,7 @@ func (w *Workload) step(ctx context.Context) error {
 	for i := range pods.Items {
 		byJob[pods.Items[i].Labels[LabelJob]] = append(byJob[pods.Items[i].Labels[LabelJob]], &pods.Items[i])
 	}
-	var running, stranded int64
+	var running, stranded, split int64
 	for _, j := range w.Jobs {
 		w.mu.Lock()
 		rec, made, gen := w.recs[j.Name], w.created[j.Name], w.gen[j.Name]
@@ -265,14 +269,18 @@ func (w *Workload) step(ctx context.Context) error {
 		}
 		if j.Gang {
 			r, s := w.stepGang(ctx, j, rec, gen, byJob[j.Name], fabricOf, now)
-			running += r
+			if len(rec.Fabrics) > 1 {
+				split += r
+			} else {
+				running += r
+			}
 			stranded += s
 		} else {
 			running += w.stepIndependent(ctx, j, rec, byJob[j.Name], now)
 		}
 	}
 	w.mu.Lock()
-	w.samples = append(w.samples, Sample{At: elapsed, CloudGPUs: w.Cloud.GPUsInUse(), RunningGPUs: running, StrandedGPUs: stranded})
+	w.samples = append(w.samples, Sample{At: elapsed, CloudGPUs: w.Cloud.GPUsInUse(), RunningGPUs: running, StrandedGPUs: stranded, SplitGPUs: split})
 	w.mu.Unlock()
 	return nil
 }
@@ -327,7 +335,11 @@ func (w *Workload) stepGang(ctx context.Context, j JobSpec, rec *JobRecord, gen 
 		rec.Started, rec.Fabrics = now, list
 		w.mu.Unlock()
 	}
-	if now.Sub(rec.Started) >= j.Duration {
+	dur := j.Duration
+	if len(rec.Fabrics) > 1 && w.SplitSlowdown > 1 {
+		dur = time.Duration(float64(dur) * w.SplitSlowdown)
+	}
+	if now.Sub(rec.Started) >= dur {
 		for _, p := range cur {
 			p.Status.Phase = corev1.PodSucceeded
 			_ = w.Client.Status().Update(ctx, p)

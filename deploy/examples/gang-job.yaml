@@ -1,0 +1,28 @@
+# A 16-node training job as an indexed Job. The gang label puts it under the provisioner: the
+# webhook gates every pod, the provisioner picks one fabric for all 16, buys what is missing and
+# removes the gate only when all 16 can start.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: llm-pretrain
+  namespace: research
+spec:
+  completionMode: Indexed
+  completions: 16
+  parallelism: 16
+  template:
+    metadata:
+      labels:
+        gpufabric.dev/gang: llm-pretrain
+      annotations:
+        gpufabric.dev/gang-size: "16"
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - {key: nvidia.com/gpu, operator: Exists}
+      containers:
+        - name: trainer
+          image: registry.example.com/llm/trainer:2026.10
+          resources:
+            limits: {nvidia.com/gpu: 8}
+            requests: {cpu: "96", memory: 1200Gi, nvidia.com/gpu: 8}

@@ -288,7 +288,8 @@ func reasonKind(reason string) string {
 func NewClaim(pool *v1alpha1.GPUNodePool, fabric, reason string) *v1alpha1.NodeClaim {
 	labels := map[string]string{v1alpha1.LabelPool: pool.Name, v1alpha1.LabelFabric: fabric}
 	return &v1alpha1.NodeClaim{
-		ObjectMeta: metav1.ObjectMeta{GenerateName: pool.Name + "-", Labels: labels},
+		// The finalizer is set at creation, saving one write per node.
+		ObjectMeta: metav1.ObjectMeta{GenerateName: pool.Name + "-", Labels: labels, Finalizers: []string{v1alpha1.Finalizer}},
 		Spec: v1alpha1.NodeClaimSpec{
 			Pool: pool.Name, InstanceType: pool.Spec.InstanceType, Fabric: fabric, Image: pool.Spec.Image,
 			TemplateHash: pool.TemplateHash(), Labels: pool.Spec.Labels, Taints: pool.Spec.Taints, Reason: reason,

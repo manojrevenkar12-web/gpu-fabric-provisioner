@@ -1,0 +1,22 @@
+# A pool of 8×H100 servers that may use two InfiniBand fabrics. Training gangs get one fabric
+# each; single-GPU work fills whichever fabric has the fewest free hosts.
+apiVersion: gpufabric.dev/v1alpha1
+kind: GPUNodePool
+metadata:
+  name: h100-training
+spec:
+  instanceType: gpu-h100-sxm.8gpu
+  fabrics: [fab-ams-1, fab-ams-2]
+  image: ubuntu24-cuda12-2026.10
+  labels:
+    team: research
+  taints:
+    - {key: nvidia.com/gpu, effect: NoSchedule}
+  limits:
+    minNodes: 2
+    maxNodes: 512
+  disruption:
+    consolidateAfter: 10m
+    maxUnavailable: 5%
+    maxSurge: 4
+    gangPolicy: WaitForCompletion

@@ -1,0 +1,27 @@
+# Release gate over reports/drills.json (cmd/gate). Every rule names the scenario and mode it
+# applies to; "*" matches all. The gate fails if any rule fails or a listed run is missing.
+provisioner:
+  # Hard invariants of this provisioner, in every drill.
+  timedOut: false
+  incompleteJobs: 0
+  splitGangs: 0
+  gangRestarts: 0
+  leakedInstances: 0
+  duplicateClaims: 0
+  pdbViolations: 0
+  oldTemplateNodes: 0
+  # Gang members are released together; what is left is pod start-up skew between them.
+  maxStrandedShareOfPaid: 0.01
+versusNaive:
+  # Where both ran the same workload, the provisioner must strand fewer GPU-seconds in partly
+  # started gangs. In the scenarios listed under costScenarios it must also not pay for more GPU
+  # time and not buy more servers. Under quota both are bounded by the quota, and the naive
+  # baseline's cost depends on whether it happens to deadlock, so cost is not compared there.
+  maxPaidRatio: 1.0
+  maxInstancesRatio: 1.0
+  costScenarios: [burst, contention, ice]
+expectations:
+  # Scenario-specific: an image rollout finishes within this long of the image change.
+  upgrade:
+    maxRolloutSeconds: 90
+required: [burst, contention, ice, quota, crash, flaky, upgrade]

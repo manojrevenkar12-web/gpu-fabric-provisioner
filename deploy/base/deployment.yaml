@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-fabric-provisioner
+  labels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+spec:
+  replicas: 2 # one leader, one warm standby (leader election on a Lease)
+  selector:
+    matchLabels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+    spec:
+      serviceAccountName: gpu-fabric-provisioner
+      priorityClassName: system-cluster-critical
+      # The provisioner must never run on the GPU nodes it manages: they are the ones it removes.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: gpufabric.dev/pool, operator: DoesNotExist}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: manager
+          image: ghcr.io/manojrevenkar12-web/gpu-fabric-provisioner:latest
+          args:
+            - --config=/etc/gpu-fabric-provisioner/controller.yaml
+            - --cloud-url=http://cloud-adapter.gpu-fabric-provisioner.svc:8090
+            - --leader-elect=true
+          env:
+            - name: GOMEMLIMIT
+              valueFrom: {resourceFieldRef: {resource: limits.memory}}
+          ports:
+            - {name: metrics, containerPort: 8080}
+            - {name: probes, containerPort: 8081}
+            - {name: webhook, containerPort: 9443}
+          readinessProbe:
+            httpGet: {path: /readyz, port: probes}
+          livenessProbe:
+            httpGet: {path: /healthz, port: probes}
+            initialDelaySeconds: 15
+          resources:
+            # At 20,000 nodes the cache holds every Node, Pod and NodeClaim; see reports/SCALE.md.
+            requests: {cpu: "1", memory: 2Gi}
+            limits: {memory: 6Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/gpu-fabric-provisioner}
+            - {name: webhook-certs, mountPath: /tmp/k8s-webhook-server/serving-certs, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: gpu-fabric-provisioner}
+        - name: webhook-certs
+          secret: {secretName: gpu-fabric-provisioner-webhook}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gpu-fabric-provisioner
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: gpu-fabric-provisioner}

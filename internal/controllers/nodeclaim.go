@@ -2,7 +2,11 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/rand"
+	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -64,8 +68,18 @@ type ClaimReconciler struct {
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile moves one claim along its lifecycle.
+// Reconcile moves one claim along its lifecycle. A write conflict (the kubelet or another
+// controller changed the object first) is retried shortly, not through the failure backoff,
+// which grows to minutes and is shared by every claim.
 func (r *ClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	res, err := r.reconcile(ctx, req)
+	if apierrors.IsConflict(err) {
+		return ctrl.Result{RequeueAfter: 100*time.Millisecond + time.Duration(rand.Int63n(int64(200*time.Millisecond)))}, nil
+	}
+	return res, err
+}
+
+func (r *ClaimReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	claim := &v1alpha1.NodeClaim{}
 	if err := r.Client.Get(ctx, req.NamespacedName, claim); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -185,52 +199,99 @@ func (r *ClaimReconciler) register(ctx context.Context, claim *v1alpha1.NodeClai
 }
 
 // syncNode copies labels and taints to the node, removes the unregistered taint and makes the
-// claim the node's owner, in one update.
+// claim the node's owner, in one JSON patch. The patch tests the taint it removes instead of
+// sending a resourceVersion, so the kubelet's status heartbeats do not make it conflict.
 func (r *ClaimReconciler) syncNode(ctx context.Context, claim *v1alpha1.NodeClaim, node *corev1.Node) error {
-	n := node.DeepCopy()
-	if n.Labels == nil {
-		n.Labels = map[string]string{}
+	ops := NodePatch(claim, node)
+	if len(ops) == 0 {
+		return nil
 	}
+	b, err := json.Marshal(ops)
+	if err != nil {
+		return err
+	}
+	return r.Client.Patch(ctx, node, client.RawPatch(types.JSONPatchType, b))
+}
+
+type patchOp struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value any    `json:"value,omitempty"`
+}
+
+func escape(k string) string { return strings.ReplaceAll(strings.ReplaceAll(k, "~", "~0"), "/", "~1") }
+
+// NodePatch is the JSON patch that registers a node for a claim.
+func NodePatch(claim *v1alpha1.NodeClaim, node *corev1.Node) []patchOp {
+	var ops []patchOp
+	want := map[string]string{}
 	for k, v := range claim.Spec.Labels {
-		n.Labels[k] = v
+		want[k] = v
 	}
-	n.Labels[v1alpha1.LabelPool] = claim.Spec.Pool
-	n.Labels[v1alpha1.LabelFabric] = claim.Spec.Fabric
-	n.Labels[v1alpha1.LabelNodeClaim] = claim.Name
-	n.Labels[v1alpha1.LabelInstanceType] = claim.Spec.InstanceType
-	taints := n.Spec.Taints[:0]
-	for _, t := range n.Spec.Taints {
-		if t.Key != v1alpha1.TaintUnregistered {
-			taints = append(taints, t)
+	want[v1alpha1.LabelPool] = claim.Spec.Pool
+	want[v1alpha1.LabelFabric] = claim.Spec.Fabric
+	want[v1alpha1.LabelNodeClaim] = claim.Name
+	want[v1alpha1.LabelInstanceType] = claim.Spec.InstanceType
+	if node.Labels == nil {
+		ops = append(ops, patchOp{Op: "add", Path: "/metadata/labels", Value: want})
+	} else {
+		keys := make([]string, 0, len(want))
+		for k := range want {
+			keys = append(keys, k)
 		}
-	}
-	for _, want := range claim.Spec.Taints {
-		found := false
-		for _, t := range taints {
-			if t.MatchTaint(&want) {
-				found = true
-				break
+		sort.Strings(keys)
+		for _, k := range keys {
+			if node.Labels[k] != want[k] {
+				ops = append(ops, patchOp{Op: "add", Path: "/metadata/labels/" + escape(k), Value: want[k]})
 			}
 		}
-		if !found {
-			taints = append(taints, want)
-		}
 	}
-	n.Spec.Taints = taints
 	owner := metav1.OwnerReference{
 		APIVersion: v1alpha1.GroupVersion.String(), Kind: "NodeClaim", Name: claim.Name, UID: claim.UID,
 		BlockOwnerDeletion: ptr.To(true),
 	}
-	hasOwner := false
-	for _, o := range n.OwnerReferences {
-		if o.UID == claim.UID {
-			hasOwner = true
+	owned := false
+	for _, o := range node.OwnerReferences {
+		owned = owned || o.UID == claim.UID
+	}
+	switch {
+	case owned:
+	case len(node.OwnerReferences) == 0:
+		ops = append(ops, patchOp{Op: "add", Path: "/metadata/ownerReferences", Value: []metav1.OwnerReference{owner}})
+	default:
+		ops = append(ops, patchOp{Op: "add", Path: "/metadata/ownerReferences/-", Value: owner})
+	}
+	// Remove the unregistered taint (highest index first, so earlier indexes stay valid), each
+	// removal guarded by a test of what is at that index.
+
+	for i := len(node.Spec.Taints) - 1; i >= 0; i-- {
+		if node.Spec.Taints[i].Key == v1alpha1.TaintUnregistered {
+			p := fmt.Sprintf("/spec/taints/%d", i)
+			ops = append(ops, patchOp{Op: "test", Path: p + "/key", Value: v1alpha1.TaintUnregistered}, patchOp{Op: "remove", Path: p})
 		}
 	}
-	if !hasOwner {
-		n.OwnerReferences = append(n.OwnerReferences, owner)
+	var missing []corev1.Taint
+	for _, want := range claim.Spec.Taints {
+		found := false
+		for _, t := range node.Spec.Taints {
+			if t.MatchTaint(&want) {
+				found = true
+			}
+		}
+		if !found {
+			missing = append(missing, want)
+		}
 	}
-	return r.Client.Update(ctx, n)
+	if len(missing) > 0 {
+		if node.Spec.Taints == nil {
+			ops = append(ops, patchOp{Op: "add", Path: "/spec/taints", Value: missing})
+		} else {
+			for _, t := range missing {
+				ops = append(ops, patchOp{Op: "add", Path: "/spec/taints/-", Value: t})
+			}
+		}
+	}
+	return ops
 }
 
 func (r *ClaimReconciler) initialize(ctx context.Context, claim *v1alpha1.NodeClaim) (ctrl.Result, error) {

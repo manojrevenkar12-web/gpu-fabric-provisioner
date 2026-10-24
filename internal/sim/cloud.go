@@ -128,6 +128,19 @@ func (c *Cloud) SetFaults(f Faults) {
 	c.offerAt = time.Time{}
 }
 
+// TakeHosts removes free hosts from a fabric, as another tenant launching there would. Offerings
+// keep reporting the old number until their cache expires.
+func (c *Cloud) TakeHosts(fabric, instanceType string, n int32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if h := c.fabrics[fabric]; h != nil {
+		h[instanceType] -= n
+		if h[instanceType] < 0 {
+			h[instanceType] = 0
+		}
+	}
+}
+
 // SetQuota changes the project's GPU quota.
 func (c *Cloud) SetQuota(gpus int64) {
 	c.mu.Lock()

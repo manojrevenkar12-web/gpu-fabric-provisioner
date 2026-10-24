@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpu-fabric-provisioner-metrics
+  labels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+spec:
+  selector: {app.kubernetes.io/name: gpu-fabric-provisioner}
+  ports:
+    - {name: metrics, port: 8080, targetPort: metrics}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gpu-fabric-provisioner
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: gpu-fabric-provisioner}
+  endpoints:
+    - {port: metrics, interval: 30s}
+---
+# Each alert has a section in docs/RUNBOOK.md with the same name.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gpu-fabric-provisioner
+spec:
+  groups:
+    - name: gpu-fabric-provisioner
+      rules:
+        - alert: GangsWaitingLong
+          expr: max_over_time(gpufabric_gangs{state="waiting"}[30m]) > 0 and min_over_time(gpufabric_gangs{state="waiting"}[30m]) > 0
+          labels: {severity: ticket}
+          annotations:
+            summary: Gangs have waited for capacity for 30 minutes
+            runbook: docs/RUNBOOK.md#gangswaitinglong
+        - alert: LaunchFailuresHigh
+          expr: sum(rate(gpufabric_nodeclaims_deleted_total{reason=~"insufficient-capacity|quota-exceeded|launch-failed"}[15m])) > 0.1
+          for: 15m
+          labels: {severity: ticket}
+          annotations:
+            summary: More than one in ten seconds of server launches is failing
+            runbook: docs/RUNBOOK.md#launchfailureshigh
+        - alert: NodesNotInitializing
+          expr: sum(rate(gpufabric_nodeclaims_deleted_total{reason=~"registration-timeout|initialization-timeout"}[30m])) > 0
+          for: 30m
+          labels: {severity: page}
+          annotations:
+            summary: Servers boot but never register or never advertise their GPUs
+            runbook: docs/RUNBOOK.md#nodesnotinitializing
+        - alert: CloudAPIErrors
+          expr: sum(rate(gpufabric_cloud_calls_total{code="Unavailable"}[5m])) / sum(rate(gpufabric_cloud_calls_total[5m])) > 0.2
+          for: 10m
+          labels: {severity: page}
+          annotations:
+            summary: More than 20% of cloud API calls fail
+            runbook: docs/RUNBOOK.md#cloudapierrors
+        - alert: LeakedInstancesCollected
+          expr: increase(gpufabric_gc_instances_deleted_total[1h]) > 0
+          labels: {severity: ticket}
+          annotations:
+            summary: GC deleted cloud servers that no NodeClaim owned
+            runbook: docs/RUNBOOK.md#leakedinstancescollected
+        - alert: PlanSlow
+          expr: histogram_quantile(0.99, sum(rate(gpufabric_plan_duration_seconds_bucket[10m])) by (le)) > 5
+          for: 15m
+          labels: {severity: ticket}
+          annotations:
+            summary: Planning takes more than 5 s at p99
+            runbook: docs/RUNBOOK.md#planslow
+        - alert: DisruptionBlocked
+          expr: sum(increase(gpufabric_disruption_blocked_total{reason=~"budget|do-not-disrupt"}[6h])) > 1000
+          labels: {severity: ticket}
+          annotations:
+            summary: Upgrades or consolidation have been blocked for hours
+            runbook: docs/RUNBOOK.md#disruptionblocked
+        - alert: NoLeader
+          expr: absent(gpufabric_plan_duration_seconds_count) or sum(rate(gpufabric_plan_duration_seconds_count[10m])) == 0
+          for: 10m
+          labels: {severity: page}
+          annotations:
+            summary: No replica is planning (no leader, or the leader is stuck)
+            runbook: docs/RUNBOOK.md#noleader

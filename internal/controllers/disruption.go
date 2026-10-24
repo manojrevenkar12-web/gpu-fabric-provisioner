@@ -34,6 +34,7 @@ type Disruptor struct {
 
 	mu            sync.Mutex
 	underutilized map[string]time.Time
+	emptySince    map[string]time.Time
 }
 
 // NeedLeaderElection: only the leader disrupts.
@@ -186,19 +187,24 @@ func (d *Disruptor) pool(ctx context.Context, pool *v1alpha1.GPUNodePool, nodes 
 	}
 
 	// 2. Track emptiness on initialized nodes; it is what consolidateAfter is measured from.
+	// It is kept in memory, not in the claim's status: a node goes empty and busy many times,
+	// and two status writes per transition per node add up at 20,000 nodes. After a leader
+	// change the timers start again, which only delays consolidation.
+	d.mu.Lock()
+	if d.emptySince == nil {
+		d.emptySince = map[string]time.Time{}
+	}
 	for _, n := range nodes {
-		if n.deleting || n.claim.Status.Phase != v1alpha1.PhaseInitialized {
+		key := n.claim.Name
+		if n.deleting || n.claim.Status.Phase != v1alpha1.PhaseInitialized || len(n.pods) > 0 {
+			delete(d.emptySince, key)
 			continue
 		}
-		empty := len(n.pods) == 0
-		if meta.IsStatusConditionTrue(n.claim.Status.Conditions, v1alpha1.ConditionEmpty) != empty {
-			c := n.claim.DeepCopy()
-			setCondition(&c.Status.Conditions, v1alpha1.ConditionEmpty, empty, "Empty", "no pods other than DaemonSets", c.Generation)
-			if err := d.Client.Status().Update(ctx, c); err == nil {
-				n.claim = c
-			}
+		if _, ok := d.emptySince[key]; !ok {
+			d.emptySince[key] = now
 		}
 	}
+	d.mu.Unlock()
 
 	alive := func() int {
 		k := 0
@@ -297,8 +303,10 @@ func (d *Disruptor) pool(ctx context.Context, pool *v1alpha1.GPUNodePool, nodes 
 		if n.deleting || n.draining || n.claim.Status.Phase != v1alpha1.PhaseInitialized || len(n.pods) > 0 {
 			continue
 		}
-		c := meta.FindStatusCondition(n.claim.Status.Conditions, v1alpha1.ConditionEmpty)
-		if c == nil || c.Status != "True" || now.Sub(c.LastTransitionTime.Time) < consolidateAfter {
+		d.mu.Lock()
+		since, ok := d.emptySince[n.claim.Name]
+		d.mu.Unlock()
+		if !ok || now.Sub(since) < consolidateAfter {
 			continue
 		}
 		if reserved[n.claim.Name] {
