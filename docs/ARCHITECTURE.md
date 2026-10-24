@@ -90,9 +90,9 @@ At 20,000 nodes the controller's cost is API writes and cache memory, not planni
 
 - Managed fields are stripped from cached objects (`cache.TransformStripManagedFields`).
 - Lists from the cache skip deep copies; nothing modifies cached objects (copies are made first).
-- A node costs about four writes from the controller: claim create (finalizer included), launch
-  status, registration status (initialization folded in when GPUs are already there), and one
-  Node update for labels, taints and owner. Pool status is written at most every
+- A node costs about five writes from the controller: claim create (finalizer included), three
+  status writes (Launched, Registered, Initialized; the last two folded into one when GPUs are
+  already there), and one guarded JSON patch to the Node for labels, taints and owner. Pool status is written at most every
   `poolStatusInterval`. `reports/SCALE.md` has the measured numbers.
 - The client is limited to `kubeQPS`/`kubeBurst` (200/400): at that rate, writes, not CPU, bound
   how fast nodes come up.

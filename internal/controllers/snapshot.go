@@ -181,5 +181,8 @@ func (cl *Cluster) gangInfo(g string) plan.GangInfo {
 
 func launchedBefore(claim *v1alpha1.NodeClaim, t time.Time) bool {
 	c := meta.FindStatusCondition(claim.Status.Conditions, v1alpha1.ConditionLaunched)
-	return c != nil && c.LastTransitionTime.Time.Before(t)
+	// Condition times have one-second resolution: a server launched up to a second after the
+	// offerings were read can carry an earlier timestamp, so only count it as included when it
+	// launched more than a second before.
+	return c != nil && c.LastTransitionTime.Add(time.Second).Before(t)
 }

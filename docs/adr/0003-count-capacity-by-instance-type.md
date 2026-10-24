@@ -22,7 +22,10 @@ that does not get there within `initializationTTL` is replaced.
 
 ## Consequences
 
-- In the burst drill this provisioner bought 54 servers for 54 servers of work; the naive
+- In the burst drill this provisioner bought 56 servers for 54 servers of work; the naive
   baseline, which counts allocatable GPUs, bought 76.
+- Offerings are a snapshot. A claim launched after the snapshot was read is still subtracted from
+  it (condition timestamps have one-second resolution, so with a second's margin). Before this,
+  the burst drill sent 20 creates into fabrics that were already full; after it, none.
 - A server that never advertises its GPUs is not planned around forever: it is replaced after
   `initializationTTL`, and the gang it was meant for keeps waiting gated, not half started.

@@ -14,19 +14,19 @@ its GPU time is not counted as useful.
 | | this provisioner | naive baseline |
 |---|---|---|
 | Jobs completed | 14 / 14 | 14 / 14 |
-| Gangs split across fabrics | 0 | 7 |
+| Gangs split across fabrics | 0 | 9 |
 | Gang restarts | 0 | 0 |
-| Gang wait p50 / p95 | 7.3 s / 11.9 s | 6.1 s / 7.1 s |
-| Makespan | 23.3 s | 43.3 s |
-| Servers created (peak) | 57 (57) | 76 (76) |
-| GPU-seconds paid | 9040 | 16275 |
-| Useful share of paid GPU time | 50% | 8% |
-| GPU-seconds held by partly started gangs | 18 | 146 |
-| GPU-seconds of gangs running across fabrics | 0 | 9603 |
-| Create calls (ICE / quota rejections) | 75 (18 / 0) | 122 (46 / 0) |
+| Gang wait p50 / p95 | 7.1 s / 10.8 s | 6.2 s / 6.9 s |
+| Makespan | 22.2 s | 43.0 s |
+| Servers created (peak) | 56 (56) | 76 (76) |
+| GPU-seconds paid | 8634 | 17113 |
+| Useful share of paid GPU time | 52% | 5% |
+| GPU-seconds held by partly started gangs | 11 | 183 |
+| GPU-seconds of gangs running across fabrics | 0 | 10963 |
+| Create calls (ICE / quota rejections) | 56 (0 / 0) | 135 (59 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 | 0 / 0 |
-| Scale-in after the last job | 10.6 s to 0 servers | 12.6 s to 0 servers |
-| API requests (writes) | 991 (981) | 1198 (1188) |
+| Scale-in after the last job | 11.7 s to 0 servers | 14.8 s to 0 servers |
+| API requests (writes) | 840 (829) | 1284 (1274) |
 
 ## contention
 
@@ -35,19 +35,19 @@ its GPU time is not counted as useful.
 | | this provisioner | naive baseline |
 |---|---|---|
 | Jobs completed | 9 / 9 | 9 / 9 |
-| Gangs split across fabrics | 0 | 6 |
+| Gangs split across fabrics | 0 | 8 |
 | Gang restarts | 0 | 0 |
-| Gang wait p50 / p95 | 12.1 s / 16.9 s | 35.4 s / 36.6 s |
-| Makespan | 26.4 s | 61.6 s |
+| Gang wait p50 / p95 | 13.9 s / 16.9 s | 35.1 s / 36.5 s |
+| Makespan | 26.4 s | 61.8 s |
 | Servers created (peak) | 32 (32) | 32 (32) |
-| GPU-seconds paid | 6128 | 13758 |
-| Useful share of paid GPU time | 57% | 2% |
-| GPU-seconds held by partly started gangs | 17 | 2049 |
-| GPU-seconds of gangs running across fabrics | 0 | 9528 |
-| Create calls (ICE / quota rejections) | 40 (8 / 0) | 443 (411 / 0) |
+| GPU-seconds paid | 6188 | 13265 |
+| Useful share of paid GPU time | 56% | 1% |
+| GPU-seconds held by partly started gangs | 31 | 965 |
+| GPU-seconds of gangs running across fabrics | 0 | 10104 |
+| Create calls (ICE / quota rejections) | 32 (0 / 0) | 393 (361 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 | 0 / 0 |
-| Scale-in after the last job | 10.4 s to 0 servers | 12.2 s to 0 servers |
-| API requests (writes) | 602 (592) | 2574 (2564) |
+| Scale-in after the last job | 9.4 s to 0 servers | 11.0 s to 0 servers |
+| API requests (writes) | 568 (558) | 2363 (2353) |
 
 <details><summary>provisioner timeline</summary>
 
@@ -59,7 +59,7 @@ its GPU time is not counted as useful.
 <details><summary>naive timeline</summary>
 
 ```
- 63.9s workload finished (timed out: false)
+ 64.1s workload finished (timed out: false)
 ```
 </details>
 
@@ -70,25 +70,25 @@ Another tenant takes 30 of the largest fabric's 40 free hosts just before the bu
 | | this provisioner | naive baseline |
 |---|---|---|
 | Jobs completed | 14 / 14 | 14 / 14 |
-| Gangs split across fabrics | 0 | 7 |
+| Gangs split across fabrics | 0 | 5 |
 | Gang restarts | 0 | 0 |
-| Gang wait p50 / p95 | 7.9 s / 8.6 s | 6.7 s / 7.3 s |
-| Makespan | 20.7 s | 43.8 s |
+| Gang wait p50 / p95 | 7.2 s / 8.1 s | 6.8 s / 7.1 s |
+| Makespan | 20.3 s | 43.2 s |
 | Servers created (peak) | 54 (54) | 60 (60) |
-| GPU-seconds paid | 8055 | 15526 |
-| Useful share of paid GPU time | 55% | 7% |
-| GPU-seconds held by partly started gangs | 16 | 195 |
-| GPU-seconds of gangs running across fabrics | 0 | 10186 |
-| Create calls (ICE / quota rejections) | 77 (23 / 0) | 115 (55 / 0) |
+| GPU-seconds paid | 7958 | 14078 |
+| Useful share of paid GPU time | 56% | 12% |
+| GPU-seconds held by partly started gangs | 11 | 186 |
+| GPU-seconds of gangs running across fabrics | 0 | 8270 |
+| Create calls (ICE / quota rejections) | 56 (2 / 0) | 118 (58 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 | 0 / 0 |
-| Scale-in after the last job | 14.2 s to 0 servers | 13.0 s to 0 servers |
-| API requests (writes) | 1000 (990) | 1058 (1048) |
+| Scale-in after the last job | 14.7 s to 0 servers | 13.6 s to 0 servers |
+| API requests (writes) | 837 (827) | 1064 (1054) |
 
 <details><summary>provisioner timeline</summary>
 
 ```
   2.1s another tenant takes 30 hosts in fab-a
- 23.0s workload finished (timed out: false)
+ 22.6s workload finished (timed out: false)
 ```
 </details>
 
@@ -96,7 +96,7 @@ Another tenant takes 30 of the largest fabric's 40 free hosts just before the bu
 
 ```
   2.1s another tenant takes 30 hosts in fab-a
- 46.1s workload finished (timed out: false)
+ 45.5s workload finished (timed out: false)
 ```
 </details>
 
@@ -109,29 +109,29 @@ The project's GPU quota is 160 GPUs (20 servers) and the queued gangs need 32.
 | Jobs completed | 7 / 7 | 7 / 7 |
 | Gangs split across fabrics | 0 | 0 |
 | Gang restarts | 0 | 0 |
-| Gang wait p50 / p95 | 7.1 s / 17.7 s | 16.0 s / 16.7 s |
-| Makespan | 26.5 s | 25.1 s |
+| Gang wait p50 / p95 | 15.2 s / 17.8 s | 16.8 s / 24.8 s |
+| Makespan | 26.6 s | 33.9 s |
 | Servers created (peak) | 20 (20) | 20 (20) |
-| GPU-seconds paid | 3831 | 3777 |
-| Useful share of paid GPU time | 59% | 60% |
-| GPU-seconds held by partly started gangs | 4 | 422 |
+| GPU-seconds paid | 3918 | 5134 |
+| Useful share of paid GPU time | 57% | 44% |
+| GPU-seconds held by partly started gangs | 8 | 1298 |
 | GPU-seconds of gangs running across fabrics | 0 | 0 |
-| Create calls (ICE / quota rejections) | 20 (0 / 0) | 587 (0 / 567) |
+| Create calls (ICE / quota rejections) | 20 (0 / 0) | 646 (0 / 626) |
 | Leaked instances / duplicate claims | 0 / 0 | 0 / 0 |
-| Scale-in after the last job | 8.4 s to 0 servers | 11.8 s to 0 servers |
-| API requests (writes) | 356 (346) | 3229 (3219) |
+| Scale-in after the last job | 8.2 s to 0 servers | 7.0 s to 0 servers |
+| API requests (writes) | 362 (352) | 3591 (3581) |
 
 <details><summary>provisioner timeline</summary>
 
 ```
- 28.8s workload finished (timed out: false)
+ 28.9s workload finished (timed out: false)
 ```
 </details>
 
 <details><summary>naive timeline</summary>
 
 ```
- 27.4s workload finished (timed out: false)
+ 36.2s workload finished (timed out: false)
 ```
 </details>
 
@@ -144,17 +144,17 @@ Two replicas with leader election; the leader is killed (no lease release) at 2 
 | Jobs completed | 14 / 14 |
 | Gangs split across fabrics | 0 |
 | Gang restarts | 0 |
-| Gang wait p50 / p95 | 10.3 s / 14.9 s |
-| Makespan | 27.4 s |
+| Gang wait p50 / p95 | 9.8 s / 16.2 s |
+| Makespan | 27.6 s |
 | Servers created (peak) | 55 (55) |
-| GPU-seconds paid | 9805 |
-| Useful share of paid GPU time | 46% |
-| GPU-seconds held by partly started gangs | 13 |
+| GPU-seconds paid | 10216 |
+| Useful share of paid GPU time | 44% |
+| GPU-seconds held by partly started gangs | 20 |
 | GPU-seconds of gangs running across fabrics | 0 |
 | Create calls (ICE / quota rejections) | 55 (0 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 |
-| Scale-in after the last job | 10.2 s to 0 servers |
-| API requests (writes) | 1022 (901) |
+| Scale-in after the last job | 9.4 s to 0 servers |
+| API requests (writes) | 1059 (938) |
 
 <details><summary>provisioner timeline</summary>
 
@@ -165,7 +165,7 @@ Two replicas with leader election; the leader is killed (no lease release) at 2 
   8.2s leader killed
  14.2s kill leader
  14.2s leader killed
- 29.8s workload finished (timed out: false)
+ 30.0s workload finished (timed out: false)
 ```
 </details>
 
@@ -178,22 +178,22 @@ Two replicas with leader election; the leader is killed (no lease release) at 2 
 | Jobs completed | 14 / 14 |
 | Gangs split across fabrics | 0 |
 | Gang restarts | 0 |
-| Gang wait p50 / p95 | 8.0 s / 16.1 s |
-| Makespan | 28.7 s |
-| Servers created (peak) | 71 (65) |
-| GPU-seconds paid | 10300 |
-| Useful share of paid GPU time | 44% |
+| Gang wait p50 / p95 | 7.7 s / 14.6 s |
+| Makespan | 26.2 s |
+| Servers created (peak) | 70 (57) |
+| GPU-seconds paid | 9750 |
+| Useful share of paid GPU time | 46% |
 | GPU-seconds held by partly started gangs | 15 |
 | GPU-seconds of gangs running across fabrics | 0 |
-| Create calls (ICE / quota rejections) | 93 (16 / 0) |
+| Create calls (ICE / quota rejections) | 73 (0 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 |
-| Scale-in after the last job | 9.2 s to 0 servers |
-| API requests (writes) | 1170 (1159) |
+| Scale-in after the last job | 11.6 s to 0 servers |
+| API requests (writes) | 1075 (1065) |
 
 <details><summary>provisioner timeline</summary>
 
 ```
- 31.0s workload finished (timed out: false)
+ 28.5s workload finished (timed out: false)
 ```
 </details>
 
@@ -206,16 +206,16 @@ The pool's image changes while two training gangs and a 6-replica service with a
 | Jobs completed | 3 / 3 |
 | Gangs split across fabrics | 0 |
 | Gang restarts | 0 |
-| Gang wait p50 / p95 | 6.1 s / 6.7 s |
-| Makespan | 69.9 s |
+| Gang wait p50 / p95 | 6.3 s / 6.4 s |
+| Makespan | 69.7 s |
 | Servers created (peak) | 14 (13) |
-| GPU-seconds paid | 3537 |
-| Useful share of paid GPU time | 74% |
-| GPU-seconds held by partly started gangs | 0 |
+| GPU-seconds paid | 3521 |
+| Useful share of paid GPU time | 75% |
+| GPU-seconds held by partly started gangs | 2 |
 | GPU-seconds of gangs running across fabrics | 0 |
 | Create calls (ICE / quota rejections) | 14 (0 / 0) |
 | Leaked instances / duplicate claims | 0 / 0 |
-| Scale-in after the last job | 5.0 s to 0 servers |
+| Scale-in after the last job | 3.2 s to 0 servers |
 | Rollout (image change to no old node) | 26.1 s |
 | PDB violations (samples) | 0 |
 | Evictions | 6 |
@@ -226,7 +226,7 @@ The pool's image changes while two training gangs and a 6-replica service with a
 
 ```
  10.1s new node image
- 72.1s workload finished (timed out: false)
+ 71.9s workload finished (timed out: false)
 ```
 </details>
 
